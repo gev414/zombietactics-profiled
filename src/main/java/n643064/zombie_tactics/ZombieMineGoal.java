@@ -1,5 +1,6 @@
 package n643064.zombie_tactics;
 
+import java.util.Objects;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.LivingEntity;
@@ -8,11 +9,15 @@ import net.minecraft.world.entity.monster.Zombie;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
+import n643064.zombie_tactics.profile.MiningProfile;
+
 
 public class ZombieMineGoal<T extends Zombie & IMarkerFollower> extends Goal
 {
     final T zombie;
     final Level level;
+    private final MiningProfile profile;
+
     BlockPos target;
     double progress, hardness = Double.MAX_VALUE;
 
@@ -32,10 +37,24 @@ public class ZombieMineGoal<T extends Zombie & IMarkerFollower> extends Goal
             };
 
     public ZombieMineGoal(T zombie)
-    {
-        this.zombie = zombie;
-        level = zombie.level();
-    }
+{
+    this(
+            zombie,
+            new MiningProfile(
+                    Config.increment,
+                    Config.maxHardness,
+                    Config.hardnessMult,
+                    Config.dropBlocks
+            )
+    );
+}
+
+public ZombieMineGoal(T zombie, MiningProfile profile)
+{
+    this.zombie = Objects.requireNonNull(zombie, "zombie");
+    this.level = this.zombie.level();
+    this.profile = Objects.requireNonNull(profile, "profile");
+}
 
     @Override
     public boolean requiresUpdateEveryTick()
@@ -47,7 +66,10 @@ public class ZombieMineGoal<T extends Zombie & IMarkerFollower> extends Goal
     public void start()
     {
         progress = 0;
-        hardness = level.getBlockState(target).getBlock().defaultDestroyTime() * Config.hardnessMult;
+        hardness = level.getBlockState(target)
+        .getBlock()
+        .defaultDestroyTime()
+        * profile.hardnessMultiplier();
     }
 
     boolean scanColumn(BlockPos bp)
@@ -67,7 +89,7 @@ public class ZombieMineGoal<T extends Zombie & IMarkerFollower> extends Goal
         final Block b = state.getBlock();
         //System.out.println("check " + pos);
         final float dt = b.defaultDestroyTime();
-        if (!b.isPossibleToRespawnInThis(state) && dt >= 0 && dt <= Config.maxHardness)
+        if (!b.isPossibleToRespawnInThis(state) && dt >= 0 && dt <= profile.maxHardness())
         {
             target = pos;
             return true;
@@ -112,7 +134,7 @@ public class ZombieMineGoal<T extends Zombie & IMarkerFollower> extends Goal
         }
         if (progress >= hardness)
         {
-            level.destroyBlock(target, Config.dropBlocks, zombie);
+            level.destroyBlock(target, profile.dropBlocks(), zombie);
             zombie.level().destroyBlockProgress(zombie.getId(), target, -1);
             target = null;
         } else
@@ -120,7 +142,7 @@ public class ZombieMineGoal<T extends Zombie & IMarkerFollower> extends Goal
             level.destroyBlockProgress(zombie.getId(), target, (int) ((progress / hardness) * 10));
             zombie.stopInPlace();
             zombie.getLookControl().setLookAt(target.getX(), target.getY(), target.getZ());
-            progress += Config.increment;
+            progress += profile.increment();
             zombie.swing(InteractionHand.MAIN_HAND);
         }
     }
