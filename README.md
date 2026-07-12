@@ -18,7 +18,7 @@ Mining profiles control the following block-breaking properties:
 The approximate number of mining ticks is:
 
 ```text
-block hardness × hardness_multiplier ÷ increment
+block hardness Ã— hardness_multiplier Ã· increment
 ```
 
 All numeric values must be finite and non-negative.
@@ -48,12 +48,12 @@ Its structure is:
 
 ```text
 zombietactics-mining-profiles/
-├── pack.mcmeta
-└── data/
-    └── zombie_tactics/
-        └── data_maps/
-            └── entity_type/
-                └── mining_profiles.json
+â”œâ”€â”€ pack.mcmeta
+â””â”€â”€ data/
+    â””â”€â”€ zombie_tactics/
+        â””â”€â”€ data_maps/
+            â””â”€â”€ entity_type/
+                â””â”€â”€ mining_profiles.json
 ```
 
 The mining profile Data Map must be located at:
@@ -155,4 +155,3 @@ n643064.zombie_tactics.profile.MiningProfileResolver
 `MiningProfileDataMaps` registers the `zombie_tactics:mining_profiles` Data Map for entity types.
 
 `MiningProfileResolver` returns an entity-specific datapack profile or constructs a fallback profile from the original global configuration.
- 
