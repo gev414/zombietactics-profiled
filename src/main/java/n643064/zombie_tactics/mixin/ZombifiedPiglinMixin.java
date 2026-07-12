@@ -15,6 +15,8 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Overwrite;
+import n643064.zombie_tactics.profile.MiningProfile;
+import n643064.zombie_tactics.profile.MiningProfileResolver;
 
 @Mixin(ZombifiedPiglin.class)
 public abstract class ZombifiedPiglinMixin extends Zombie implements NeutralMob
@@ -34,7 +36,19 @@ public abstract class ZombifiedPiglinMixin extends Zombie implements NeutralMob
             if (Config.targetAnimals)
                 this.targetSelector.addGoal(Config.targetAnimalsPriority, new NearestAttackableTargetGoal<>(this, Animal.class, Config.targetAnimalsVisibility));
             if (Config.mineBlocks)
-                this.goalSelector.addGoal(Config.miningPriority, new ZombieMineGoal<>((Zombie & IMarkerFollower) this));
+            {
+                MiningProfile profile =
+                MiningProfileResolver.resolve(this.getType());
+
+                this.goalSelector.addGoal(
+                Config.miningPriority,
+                new ZombieMineGoal<>(
+                    (Zombie & IMarkerFollower) this,
+                    profile
+                    )
+                );
+            }
+
             if (Config.enableMarkers)
             {
                 this.goalSelector.addGoal(2, new RemoveMarkerGoal<>((Zombie & IMarkerFollower) this));

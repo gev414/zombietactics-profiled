@@ -19,6 +19,8 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Overwrite;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
+import n643064.zombie_tactics.profile.MiningProfile;
+import n643064.zombie_tactics.profile.MiningProfileResolver;
 
 @Mixin(Zombie.class)
 public abstract class ZombieMixin extends Monster implements IMarkerFollower
@@ -58,7 +60,19 @@ public abstract class ZombieMixin extends Monster implements IMarkerFollower
         if (Config.targetAnimals)
             this.targetSelector.addGoal(Config.targetAnimalsPriority, new NearestAttackableTargetGoal<>(this, Animal.class, Config.targetAnimalsVisibility));
         if (Config.mineBlocks)
-            this.goalSelector.addGoal(Config.miningPriority, new ZombieMineGoal((Zombie & IMarkerFollower) (Object) this));
+{
+    Zombie zombie = (Zombie) (Object) this;
+    MiningProfile profile =
+            MiningProfileResolver.resolve(zombie.getType());
+
+    this.goalSelector.addGoal(
+            Config.miningPriority,
+            new ZombieMineGoal(
+                    (Zombie & IMarkerFollower) (Object) this,
+                    profile
+            )
+    );
+}
         if (Config.enableMarkers)
         {
             this.goalSelector.addGoal(2, new RemoveMarkerGoal<>((Zombie & IMarkerFollower) (Object) this));
