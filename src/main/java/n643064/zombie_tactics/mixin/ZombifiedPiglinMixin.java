@@ -1,6 +1,8 @@
 package n643064.zombie_tactics.mixin;
 
 import n643064.zombie_tactics.*;
+import n643064.zombie_tactics.profile.MiningProfile;
+import n643064.zombie_tactics.profile.MiningProfileResolver;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.NeutralMob;
 import net.minecraft.world.entity.ai.goal.WaterAvoidingRandomStrollGoal;
@@ -15,42 +17,37 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Overwrite;
-import n643064.zombie_tactics.profile.MiningProfile;
-import n643064.zombie_tactics.profile.MiningProfileResolver;
 
 @Mixin(ZombifiedPiglin.class)
-public abstract class ZombifiedPiglinMixin extends Zombie implements NeutralMob
-{
-    public ZombifiedPiglinMixin(EntityType<? extends Zombie> entityType, Level level) {super(entityType, level);}
+public abstract class ZombifiedPiglinMixin extends Zombie implements NeutralMob {
+    public ZombifiedPiglinMixin(EntityType<? extends Zombie> entityType, Level level) {
+        super(entityType, level);
+    }
 
     /**
      * @author me
      * @reason no :3
      */
     @Overwrite
-    protected void addBehaviourGoals()
-    {
-        if (Config.affectPiglins)
-        {
+    protected void addBehaviourGoals() {
+        if (Config.affectPiglins) {
             this.goalSelector.addGoal(1, new ZombieAttackGoal(this, 1.0, true));
             if (Config.targetAnimals)
                 this.targetSelector.addGoal(Config.targetAnimalsPriority, new NearestAttackableTargetGoal<>(this, Animal.class, Config.targetAnimalsVisibility));
-            if (Config.mineBlocks)
-            {
+            if (Config.mineBlocks) {
                 MiningProfile profile =
-                MiningProfileResolver.resolve(this.getType());
+                        MiningProfileResolver.resolve(this.getType());
 
                 this.goalSelector.addGoal(
-                Config.miningPriority,
-                new ZombieMineGoal<>(
-                    (Zombie & IMarkerFollower) this,
-                    profile
-                    )
+                        Config.miningPriority,
+                        new ZombieMineGoal<>(
+                                (Zombie & IMarkerFollower) this,
+                                profile
+                        )
                 );
             }
 
-            if (Config.enableMarkers)
-            {
+            if (Config.enableMarkers) {
                 this.goalSelector.addGoal(2, new RemoveMarkerGoal<>((Zombie & IMarkerFollower) this));
                 this.goalSelector.addGoal(Config.markerPathingPriority, new MoveTowardsMarkerGoal<>((Zombie & IMarkerFollower) this));
             }
