@@ -41,19 +41,18 @@ This preserves the original behavior for existing installations and entities tha
 A complete example datapack is available under:
 
 ```text
-examples/zombietactics-mining-profiles/
-```
+examples/zombie_tactics_profile_example/```
 
 Its structure is:
 
 ```text
-zombietactics-mining-profiles/
-â”œâ”€â”€ pack.mcmeta
-â””â”€â”€ data/
-    â””â”€â”€ zombie_tactics/
-        â””â”€â”€ data_maps/
-            â””â”€â”€ entity_type/
-                â””â”€â”€ mining_profiles.json
+zombie_tactics_profile_example/
+|-- pack.mcmeta
+`-- data/
+    `-- zombie_tactics/
+        `-- data_maps/
+            `-- entity_type/
+                `-- mining_profiles.json
 ```
 
 The mining profile Data Map must be located at:
