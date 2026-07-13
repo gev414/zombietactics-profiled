@@ -10,31 +10,36 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 
+import java.util.EnumSet;
 import java.util.Objects;
 
-
 public class ZombieMineGoal<T extends Zombie & IMarkerFollower> extends Goal {
+
+    private static final int MINING_START_DELAY_TICKS = 10;
+
+    private int navigationBlockedSinceTick = -1;
+
     final T zombie;
     final Level level;
     private final MiningProfile profile;
 
     BlockPos target;
-    double progress, hardness = Double.MAX_VALUE;
+    double progress;
+    double hardness = Double.MAX_VALUE;
 
-    final byte[][] offsets = new byte[][]
-            {
-                    {0, 0, 1},
-                    {0, 0, -1},
-                    {1, 0, 0},
-                    {-1, 0, 0},
-                    {0, -1, 0},
-                    {0, 2, 0},
+    final byte[][] offsets = new byte[][]{
+            {0, 0, 1},
+            {0, 0, -1},
+            {1, 0, 0},
+            {-1, 0, 0},
+            {0, -1, 0},
+            {0, 2, 0},
 
-                    {1, 0, 1},
-                    {1, 0, -1},
-                    {-1, 0, 1},
-                    {-1, 0, -1}
-            };
+            {1, 0, 1},
+            {1, 0, -1},
+            {-1, 0, 1},
+            {-1, 0, -1}
+    };
 
     public ZombieMineGoal(T zombie) {
         this(
@@ -52,6 +57,11 @@ public class ZombieMineGoal<T extends Zombie & IMarkerFollower> extends Goal {
         this.zombie = Objects.requireNonNull(zombie, "zombie");
         this.level = this.zombie.level();
         this.profile = Objects.requireNonNull(profile, "profile");
+
+        this.setFlags(EnumSet.of(
+                Goal.Flag.MOVE,
+                Goal.Flag.LOOK
+        ));
     }
 
     @Override
@@ -69,65 +79,113 @@ public class ZombieMineGoal<T extends Zombie & IMarkerFollower> extends Goal {
     }
 
     boolean scanColumn(BlockPos bp) {
-        //System.out.println("scan " + bp);
         int diff = Integer.compare(zombie.getBlockY() - bp.getY(), 0);
 
-        if (!checkBlock(bp.offset(0, diff, 0)))
-            if (!checkBlock(bp))
+        if (!checkBlock(bp.offset(0, diff, 0))) {
+            if (!checkBlock(bp)) {
                 return checkBlock(bp.offset(0, -diff, 0));
+            }
+        }
+
         return true;
     }
 
     boolean checkBlock(BlockPos pos) {
         final BlockState state = level.getBlockState(pos);
-        final Block b = state.getBlock();
-        //System.out.println("check " + pos);
-        final float dt = b.defaultDestroyTime();
-        if (!b.isPossibleToRespawnInThis(state) && dt >= 0 && dt <= profile.maxHardness()) {
+        final Block block = state.getBlock();
+        final float destroyTime = block.defaultDestroyTime();
+
+        if (!block.isPossibleToRespawnInThis(state)
+                && destroyTime >= 0
+                && destroyTime <= profile.maxHardness()) {
+
             target = pos;
             return true;
         }
+
         return false;
     }
 
     @Override
     public void stop() {
+        navigationBlockedSinceTick = -1;
+
         if (target != null) {
-            zombie.level().destroyBlockProgress(zombie.getId(), target, -1);
+            zombie.level().destroyBlockProgress(
+                    zombie.getId(),
+                    target,
+                    -1
+            );
+
             target = null;
         }
+
         zombie.getNavigation().recomputePath();
+
         progress = 0;
         hardness = Double.MAX_VALUE;
     }
 
     @Override
     public void tick() {
-        if (target == null) return;
-        final double d;
-        final MarkerEntity m = zombie.zombieTactics$getTargetMarker();
-        final LivingEntity t = zombie.getTarget();
-        if (t != null)
-            d = zombie.distanceToSqr(t);
-        else if (m != null)
-            d = zombie.distanceToSqr(m);
-        else {
+        if (target == null) {
+            return;
+        }
+
+        final double distanceToTargetSquared;
+        final MarkerEntity marker =
+                zombie.zombieTactics$getTargetMarker();
+        final LivingEntity livingTarget =
+                zombie.getTarget();
+
+        if (livingTarget != null) {
+            distanceToTargetSquared =
+                    zombie.distanceToSqr(livingTarget);
+        } else if (marker != null) {
+            distanceToTargetSquared =
+                    zombie.distanceToSqr(marker);
+        } else {
             target = null;
             return;
         }
 
-        if (level.getBlockState(target).isAir() || d <= Config.minDist || d > Config.maxDist) {
+        if (level.getBlockState(target).isAir()
+                || distanceToTargetSquared <= Config.minDist
+                || distanceToTargetSquared > Config.maxDist) {
+
             target = null;
             return;
         }
+
         if (progress >= hardness) {
-            level.destroyBlock(target, profile.dropBlocks(), zombie);
-            zombie.level().destroyBlockProgress(zombie.getId(), target, -1);
+            level.destroyBlock(
+                    target,
+                    profile.dropBlocks(),
+                    zombie
+            );
+
+            zombie.level().destroyBlockProgress(
+                    zombie.getId(),
+                    target,
+                    -1
+            );
+
             target = null;
         } else {
-            level.destroyBlockProgress(zombie.getId(), target, (int) ((progress / hardness) * 10));
+            level.destroyBlockProgress(
+                    zombie.getId(),
+                    target,
+                    (int) ((progress / hardness) * 10)
+            );
+
             zombie.stopInPlace();
-            zombie.getLookControl().setLookAt(target.getX(), target.getY(), target.getZ());
+
+            zombie.getLookControl().setLookAt(
+                    target.getX(),
+                    target.getY(),
+                    target.getZ()
+            );
+
             progress += profile.increment();
             zombie.swing(InteractionHand.MAIN_HAND);
         }
@@ -135,40 +193,90 @@ public class ZombieMineGoal<T extends Zombie & IMarkerFollower> extends Goal {
 
     @Override
     public boolean canContinueToUse() {
-        return target != null && zombie.distanceToSqr(target.getCenter()) <= 9;
+        return target != null
+                && zombie.distanceToSqr(target.getCenter()) <= 9;
     }
 
     @Override
     public boolean canUse() {
-        if (zombie.isAlive() && !zombie.isNoAi() && (zombie.getNavigation().isStuck() || zombie.getNavigation().isDone())) {
-            BlockPos bp;
-            final double dttsqr;
-            final MarkerEntity m = zombie.zombieTactics$getTargetMarker();
-            final LivingEntity t = zombie.getTarget();
-
-            if (t != null) {
-                bp = Util.off(zombie.blockPosition(), t.blockPosition());
-                dttsqr = zombie.distanceToSqr(t);
-            } else if (m != null) {
-                bp = Util.off(zombie.blockPosition(), m.blockPosition());
-                dttsqr = zombie.distanceToSqr(m);
-            } else return false;
-            if (dttsqr * 1.2 >= zombie.distanceToSqr(bp.getCenter()) && !scanColumn(bp.above()))
-                if (zombie.getNavigation().isStuck() && !scanColumn(bp))
-                    for (byte[] o : offsets)
-                        scanColumn(zombie.blockPosition().offset(o[0], o[1], o[2]));
-            /*
-            else if (!scanColumn(bp))
-                if (zombie.getNavigation().isStuck())
-                    bp = zombie.blockPosition();
-                    for (byte[] o : offsets)
-                        if (scanColumn(bp.offset(o[0], o[1], o[2])))
-                            break;
-                else
-                    target = null;
-
-             */
+        if (!zombie.isAlive() || zombie.isNoAi()) {
+            navigationBlockedSinceTick = -1;
+            target = null;
+            return false;
         }
+
+        boolean navigationBlocked =
+                zombie.getNavigation().isStuck()
+                        || zombie.getNavigation().isDone();
+
+        if (!navigationBlocked) {
+            navigationBlockedSinceTick = -1;
+            target = null;
+            return false;
+        }
+
+        if (navigationBlockedSinceTick < 0) {
+            navigationBlockedSinceTick = zombie.tickCount;
+            return false;
+        }
+
+        int blockedTicks =
+                zombie.tickCount - navigationBlockedSinceTick;
+
+        if (blockedTicks < MINING_START_DELAY_TICKS) {
+            return false;
+        }
+
+        final BlockPos blockPos;
+        final double distanceToTargetSquared;
+        final MarkerEntity marker =
+                zombie.zombieTactics$getTargetMarker();
+        final LivingEntity livingTarget =
+                zombie.getTarget();
+
+        if (livingTarget != null) {
+            blockPos = Util.off(
+                    zombie.blockPosition(),
+                    livingTarget.blockPosition()
+            );
+
+            distanceToTargetSquared =
+                    zombie.distanceToSqr(livingTarget);
+        } else if (marker != null) {
+            blockPos = Util.off(
+                    zombie.blockPosition(),
+                    marker.blockPosition()
+            );
+
+            distanceToTargetSquared =
+                    zombie.distanceToSqr(marker);
+        } else {
+            navigationBlockedSinceTick = -1;
+            target = null;
+            return false;
+        }
+
+        target = null;
+
+        if (distanceToTargetSquared * 1.2
+                >= zombie.distanceToSqr(blockPos.getCenter())
+                && !scanColumn(blockPos.above())) {
+
+            if (zombie.getNavigation().isStuck()
+                    && !scanColumn(blockPos)) {
+
+                for (byte[] offset : offsets) {
+                    scanColumn(
+                            zombie.blockPosition().offset(
+                                    offset[0],
+                                    offset[1],
+                                    offset[2]
+                            )
+                    );
+                }
+            }
+        }
+
         return target != null;
     }
 }
