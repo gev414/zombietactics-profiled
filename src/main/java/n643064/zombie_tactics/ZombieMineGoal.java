@@ -16,6 +16,8 @@ import java.util.Objects;
 public class ZombieMineGoal<T extends Zombie & IMarkerFollower> extends Goal {
 
     private static final int MINING_START_DELAY_TICKS = 10;
+    private static final double MAX_MINING_REACH_SQR = 16.0D;
+
 
     private int navigationBlockedSinceTick = -1;
 
@@ -88,6 +90,67 @@ public class ZombieMineGoal<T extends Zombie & IMarkerFollower> extends Goal {
         }
 
         return true;
+    }
+
+    private boolean scanTowardTarget(
+            BlockPos zombiePos,
+            BlockPos destinationPos
+    ) {
+        int deltaX =
+                destinationPos.getX() - zombiePos.getX();
+        int deltaY =
+                destinationPos.getY() - zombiePos.getY();
+        int deltaZ =
+                destinationPos.getZ() - zombiePos.getZ();
+
+        int stepX = Integer.compare(deltaX, 0);
+        int stepY = Integer.compare(deltaY, 0);
+        int stepZ = Integer.compare(deltaZ, 0);
+
+        /*
+         * When the target is diagonal, first try the two
+         * cardinal side columns. Opening one of these creates
+         * an actual space through which the zombie can advance.
+         */
+        if (stepX != 0 && stepZ != 0) {
+            BlockPos xSide =
+                    zombiePos.offset(stepX, 0, 0);
+
+            BlockPos zSide =
+                    zombiePos.offset(0, 0, stepZ);
+
+            /*
+             * Prefer the axis with the larger remaining distance.
+             * If that side contains no mineable block, try the
+             * other cardinal side.
+             */
+            if (Math.abs(deltaX) >= Math.abs(deltaZ)) {
+                if (scanColumn(xSide.above())) {
+                    return true;
+                }
+
+                if (scanColumn(zSide.above())) {
+                    return true;
+                }
+            } else {
+                if (scanColumn(zSide.above())) {
+                    return true;
+                }
+
+                if (scanColumn(xSide.above())) {
+                    return true;
+                }
+            }
+        }
+
+        /*
+         * Fall back to the direct step, including a diagonal
+         * position when neither cardinal side contains a block.
+         */
+        BlockPos directStep =
+                zombiePos.offset(stepX, stepY, stepZ);
+
+        return scanColumn(directStep.above());
     }
 
     boolean checkBlock(BlockPos pos) {
@@ -193,8 +256,18 @@ public class ZombieMineGoal<T extends Zombie & IMarkerFollower> extends Goal {
 
     @Override
     public boolean canContinueToUse() {
-        return target != null
-                && zombie.distanceToSqr(target.getCenter()) <= 9;
+        if (target == null
+                || !zombie.isAlive()
+                || zombie.isNoAi()) {
+            return false;
+        }
+
+        if (level.getBlockState(target).isAir()) {
+            return false;
+        }
+
+        return zombie.distanceToSqr(target.getCenter())
+                <= MAX_MINING_REACH_SQR;
     }
 
     @Override
@@ -227,26 +300,24 @@ public class ZombieMineGoal<T extends Zombie & IMarkerFollower> extends Goal {
             return false;
         }
 
-        final BlockPos blockPos;
+        final BlockPos destinationPos;
         final double distanceToTargetSquared;
+
         final MarkerEntity marker =
                 zombie.zombieTactics$getTargetMarker();
+
         final LivingEntity livingTarget =
                 zombie.getTarget();
 
         if (livingTarget != null) {
-            blockPos = Util.off(
-                    zombie.blockPosition(),
-                    livingTarget.blockPosition()
-            );
+            destinationPos =
+                    livingTarget.blockPosition();
 
             distanceToTargetSquared =
                     zombie.distanceToSqr(livingTarget);
         } else if (marker != null) {
-            blockPos = Util.off(
-                    zombie.blockPosition(),
-                    marker.blockPosition()
-            );
+            destinationPos =
+                    marker.blockPosition();
 
             distanceToTargetSquared =
                     zombie.distanceToSqr(marker);
@@ -256,23 +327,35 @@ public class ZombieMineGoal<T extends Zombie & IMarkerFollower> extends Goal {
             return false;
         }
 
+        BlockPos zombiePos =
+                zombie.blockPosition();
+
+        BlockPos directStep =
+                Util.off(
+                        zombiePos,
+                        destinationPos
+                );
+
         target = null;
 
         if (distanceToTargetSquared * 1.2
-                >= zombie.distanceToSqr(blockPos.getCenter())
-                && !scanColumn(blockPos.above())) {
+                >= zombie.distanceToSqr(directStep.getCenter())
+                && !scanTowardTarget(zombiePos, destinationPos)) {
 
-            if (zombie.getNavigation().isStuck()
-                    && !scanColumn(blockPos)) {
-
+            if (zombie.getNavigation().isStuck()) {
                 for (byte[] offset : offsets) {
-                    scanColumn(
-                            zombie.blockPosition().offset(
-                                    offset[0],
-                                    offset[1],
-                                    offset[2]
-                            )
-                    );
+                    boolean foundBlock =
+                            scanColumn(
+                                    zombiePos.offset(
+                                            offset[0],
+                                            offset[1],
+                                            offset[2]
+                                    )
+                            );
+
+                    if (foundBlock) {
+                        break;
+                    }
                 }
             }
         }
