@@ -11,6 +11,7 @@ import net.neoforged.fml.config.ModConfig;
 import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredRegister;
+import n643064.zombie_tactics.profile.MiningProfileDataMaps;
 
 @Mod(Main.MODID)
 public class Main
@@ -29,6 +30,7 @@ public class Main
     {
         modContainer.registerConfig(ModConfig.Type.COMMON, Config.SPEC);
         ENTITIES.register(modEventBus);
+        modEventBus.addListener(MiningProfileDataMaps::register);
         modEventBus.addListener(Main::registerRenderers);
     }
 

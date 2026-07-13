@@ -1,0 +1,10 @@
+{
+  "values": {
+    "minecraft:zombified_piglin": {
+      "increment": 0.3,
+      "max_hardness": 12.0,
+      "hardness_multiplier": 3.0,
+      "drop_blocks": true
+    }
+  }
+}
