@@ -213,8 +213,7 @@ public class ZombieMineGoal<T extends Zombie & IMarkerFollower> extends Goal {
         }
 
         if (level.getBlockState(target).isAir()
-                || distanceToTargetSquared <= Config.minDist
-                || distanceToTargetSquared > Config.maxDist) {
+                || !this.isWithinMiningRange(distanceToTargetSquared)) {
 
             target = null;
             return;
@@ -327,6 +326,12 @@ public class ZombieMineGoal<T extends Zombie & IMarkerFollower> extends Goal {
             return false;
         }
 
+        if (!this.isWithinMiningRange(distanceToTargetSquared)) {
+            this.navigationBlockedSinceTick = -1;
+            this.target = null;
+            return false;
+        }
+
         BlockPos zombiePos =
                 zombie.blockPosition();
 
@@ -361,5 +366,16 @@ public class ZombieMineGoal<T extends Zombie & IMarkerFollower> extends Goal {
         }
 
         return target != null;
+    }
+
+    private boolean isWithinMiningRange(double distanceSqr) {
+        double minimumDistanceSqr =
+                Config.minDist * Config.minDist;
+
+        double maximumDistanceSqr =
+                Config.maxDist * Config.maxDist;
+
+        return distanceSqr > minimumDistanceSqr
+                && distanceSqr <= maximumDistanceSqr;
     }
 }
